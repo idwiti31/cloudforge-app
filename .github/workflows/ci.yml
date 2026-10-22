@@ -54,3 +54,20 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/cloudforge-api:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/cloudforge-api:${{ github.sha }}
+
+
+  deploy:
+    name: Deploy to Kubernetes
+    needs: build-and-push
+    if: github.event_name == 'push'
+    runs-on: self-hosted
+
+    steps:
+      - name: Deploy new image
+        run: |
+          kubectl set image deployment/cloudforge-api \
+            api=${{ secrets.DOCKERHUB_USERNAME }}/cloudforge-api:${{ github.sha }}
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/cloudforge-api --timeout=120s
