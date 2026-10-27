@@ -27,6 +27,38 @@ jobs:
       - name: Run API tests
         run: python -m unittest discover -s tests -v
 
+  sonarcloud:
+    name: SonarQube Cloud Analysis
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install coverage
+
+      - name: Run tests with coverage
+        run: |
+          coverage run -m unittest discover -s tests -v
+          coverage xml -o coverage.xml
+
+      - name: SonarQube Cloud Scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   build-and-push:
     name: Build, Scan and Push Image
     needs: test
