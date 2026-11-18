@@ -8,7 +8,6 @@ pipeline {
 
     environment {
         IMAGE_NAME = 'dwiti3184/cloudforge-api'
-        IMAGE_TAG = "${IMAGE_NAME}:${GIT_COMMIT}"
     }
 
     stages {
@@ -31,14 +30,17 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-            steps {
-                sh '''
-                    docker build \
-                      -f docker/Dockerfile.api \
+	    steps {
+                  script {
+                          env.IMAGE_TAG = "${env.IMAGE_NAME}:${env.GIT_COMMIT}"
+                         }
+                 sh '''
+	            docker build \
+	              -f docker/Dockerfile.api \
                       -t "$IMAGE_TAG" .
-                '''
+                 '''
             }
-        }
+         }
 
         stage('Trivy Security Scan') {
             steps {
