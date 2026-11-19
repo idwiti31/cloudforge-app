@@ -104,7 +104,7 @@ jobs:
   deploy:
     name: Deploy to Kubernetes
     needs: build-and-push
-    if: github.event_name == 'push'
+    if: false # Disabled: Argo CD manages deployments
     runs-on: self-hosted
 
     steps:
