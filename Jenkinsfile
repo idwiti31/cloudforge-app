@@ -30,17 +30,18 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-	    steps {
-                  script {
-                          env.IMAGE_TAG = "${env.IMAGE_NAME}:${env.GIT_COMMIT}"
-                         }
-                 sh '''
-	            docker build \
-	              -f docker/Dockerfile.api \
+            steps {
+                script {
+                    env.IMAGE_TAG = "${env.IMAGE_NAME}:${env.GIT_COMMIT}"
+                }
+
+                sh '''
+                    docker build \
+                      -f docker/Dockerfile.api \
                       -t "$IMAGE_TAG" .
-                 '''
+                '''
             }
-         }
+        }
 
         stage('Trivy Security Scan') {
             steps {
@@ -71,6 +72,77 @@ pipeline {
                         docker push "$IMAGE_NAME:latest"
 
                         docker logout
+                    '''
+                }
+            }
+        }
+
+        stage('Update GitOps Manifest') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-write-creds',
+                    usernameVariable: 'GIT_USERNAME',
+                    passwordVariable: 'GIT_TOKEN'
+                )]) {
+                    sh '''
+                        set -eu
+
+                        python3 - <<'PY'
+import os
+
+manifest = "kubernetes/deployment.yaml"
+image = os.environ["IMAGE_TAG"]
+
+with open(manifest, "r") as f:
+    lines = f.readlines()
+
+updated = False
+
+for i, line in enumerate(lines):
+    if line.strip() == "- name: api":
+        for j in range(i + 1, min(i + 5, len(lines))):
+            if "image:" in lines[j]:
+                indent = lines[j][:len(lines[j]) - len(lines[j].lstrip())]
+                lines[j] = indent + "image: " + image + "\n"
+                updated = True
+                break
+        break
+
+if not updated:
+    raise SystemExit("Could not locate api container image in manifest")
+
+with open(manifest, "w") as f:
+    f.writelines(lines)
+PY
+
+                        git config user.name "CloudForge Jenkins"
+                        git config user.email "jenkins@cloudforge.local"
+
+                        git add kubernetes/deployment.yaml
+
+                        if git diff --cached --quiet; then
+                            echo "No manifest changes to commit."
+                        else
+                            git commit -m "Update CloudForge image to ${GIT_COMMIT}"
+
+                            ASKPASS=$(mktemp)
+                            trap 'rm -f "$ASKPASS"' EXIT
+
+                            cat > "$ASKPASS" <<'EOF'
+#!/bin/sh
+case "$1" in
+    *Username*) echo "$GIT_USERNAME" ;;
+    *Password*) echo "$GIT_TOKEN" ;;
+    *) echo "$GIT_TOKEN" ;;
+esac
+EOF
+
+                            chmod 700 "$ASKPASS"
+                            export GIT_ASKPASS="$ASKPASS"
+                            export GIT_TERMINAL_PROMPT=0
+
+                            git push origin HEAD:main
+                        fi
                     '''
                 }
             }
