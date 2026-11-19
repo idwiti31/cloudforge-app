@@ -87,33 +87,20 @@ pipeline {
                     sh '''
                         set -eu
 
-                        python3 - <<'PY'
-import os
+                        awk -v image="$IMAGE_TAG" '
+			/- name: api/ {
+                           in_api = 1
+                           print
+                           next
+			}
+			in_api && /image:/ {
+				sub(/image:.*/, "image: " image)
+				in_api = 0
+			}
+			{ print }
+			' kubernetes/deployment.yaml > kubernetes/deployment.yaml.tmp
 
-manifest = "kubernetes/deployment.yaml"
-image = os.environ["IMAGE_TAG"]
-
-with open(manifest, "r") as f:
-    lines = f.readlines()
-
-updated = False
-
-for i, line in enumerate(lines):
-    if line.strip() == "- name: api":
-        for j in range(i + 1, min(i + 5, len(lines))):
-            if "image:" in lines[j]:
-                indent = lines[j][:len(lines[j]) - len(lines[j].lstrip())]
-                lines[j] = indent + "image: " + image + chr(10)
-                updated = True
-                break
-        break
-
-if not updated:
-    raise SystemExit("Could not locate api container image in manifest")
-
-with open(manifest, "w") as f:
-    f.writelines(lines)
-PY
+			mv kubernetes/deployment.yaml.tmp kubernetes/deployment.yaml                       
 
                         git config user.name "CloudForge Jenkins"
                         git config user.email "jenkins@cloudforge.local"
