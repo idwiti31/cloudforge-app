@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: cloudforge-api:v1
+          image: dwiti3184/cloudforge-api:cb50d4808db79ef68b41fdf39e79c84e20d3c2e1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
