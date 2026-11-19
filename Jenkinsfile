@@ -103,7 +103,7 @@ for i, line in enumerate(lines):
         for j in range(i + 1, min(i + 5, len(lines))):
             if "image:" in lines[j]:
                 indent = lines[j][:len(lines[j]) - len(lines[j].lstrip())]
-                lines[j] = indent + "image: " + image + "\n"
+                lines[j] = indent + "image: " + image + chr(10)
                 updated = True
                 break
         break
